@@ -1,7 +1,7 @@
 -- #region elm imports
 
 
-module Frontend exposing (..)
+module Main exposing (..)
 
 import Browser
 import Html exposing (Html, text)
@@ -14,8 +14,6 @@ import Material.List as List
 import Material.List.Item as ListItem
 import Material.TopAppBar as TopAppBar
 import Material.Typography as Typography
-
-
 
 -- #endregion
 
