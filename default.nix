@@ -13,10 +13,12 @@ pkgs.stdenv.mkDerivation
     zlib
     elmPackages.elm
     sqlite
+    minify
   ];
 
   buildPhase = ''
-    elm make --optimize src/Main.elm --output elm.js;
+    elm make --optimize src/Main.elm --output elm.js
+    minify elm.js > elm.min.js
   '';
 
   meta = {
