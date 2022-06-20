@@ -16,7 +16,7 @@ pkgs.stdenv.mkDerivation
   ];
 
   buildPhase = ''
-    elm make --optimized
+    elm make --optimize src/Main.elm --output elm.js;
   '';
 
   meta = {
