@@ -7,6 +7,7 @@ pkgs.stdenv.mkDerivation
 {
   name = "elm-pos";
   version = "0.1.0";
+  srcs = ./.;
 
   buildInputs = with pkgs; [
     clang

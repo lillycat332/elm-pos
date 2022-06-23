@@ -1,0 +1,354 @@
+-- #region elm imports
+
+
+module Main exposing (..)
+
+import Browser
+import Browser.Events
+import Element exposing (DeviceClass(..), Element)
+import Element.Border as Border
+import Element.Font as Font
+import Time
+import Html exposing (Html, text)
+import Html.Attributes exposing (style)
+-- import Material.Card exposing (Button)
+-- import Material.Fab as Fab
+import Widget exposing (Modal, TextInput)
+import Widget.Icon as Icon
+import Widget.Layout as Layout
+import Widget.Material as Material
+import Widget.Material.Color as MaterialColor
+import Widget.Material.Typography
+import Widget.Snackbar as Snackbar exposing (Snackbar)
+-- import Material.Typography as Typography
+
+-- #endregion
+
+container palette =
+    (palette.background |> MaterialColor.textAndBackground)
+        ++ [ Font.family
+                [ Font.typeface "Roboto"
+                , Font.sansSerif
+                ]
+           , Font.size 16
+           , Font.letterSpacing 0.5
+           ]
+
+
+searchFill palette =
+    { elementRow =
+        (palette.surface
+            |> MaterialColor.textAndBackground
+        )
+            ++ [ Element.height <| Element.px 56 ]
+    , content =
+        { chips =
+            { elementRow = [ Element.spacing 8 ]
+            , content = Material.chip palette
+            }
+        , text =
+            { elementTextInput =
+                (palette.surface
+                    |> MaterialColor.textAndBackground
+                )
+                    ++ [ Border.width 0
+                       , Element.mouseOver []
+                       , Element.focused []
+                       ]
+            }
+        }
+    }
+
+
+type Part
+    = LeftSheet
+    | RightSheet
+    | Search
+
+
+type alias Model =
+    { window :
+        { height : Int
+        , width : Int
+        }
+    , showDialog : Bool
+    , snackbar : Snackbar String
+    , active : Maybe Part
+    , selected : Int
+    , searchText : String
+    }
+
+
+type Msg
+    = ChangedSidebar (Maybe Part)
+    | Resized { width : Int, height : Int }
+    | SetSelected Int
+    | AddSnackbar
+    | ShowDialog Bool
+    | SetSearchText String
+    | TimePassed Int
+
+
+init : ( Model, Cmd Msg )
+init =
+    ( { window = { height = 200, width = 400 }
+      , showDialog = False
+      , snackbar = Snackbar.init
+      , active = Just RightSheet
+      , selected = 0
+      , searchText = ""
+      }
+    , Cmd.none
+    )
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        ChangedSidebar maybePart ->
+            ( { model | active = maybePart }
+            , Cmd.none
+            )
+
+        Resized window ->
+            ( { model | window = window }
+            , Cmd.none
+            )
+
+        SetSelected int ->
+            ( { model | selected = int }
+            , Cmd.none
+            )
+
+        AddSnackbar ->
+            ( { model | snackbar = model.snackbar |> Snackbar.insert "This is a message" }
+            , Cmd.none
+            )
+
+        ShowDialog bool ->
+            ( { model | showDialog = bool }
+            , Cmd.none
+            )
+
+        SetSearchText maybeString ->
+            ( { model | searchText = maybeString }
+            , Cmd.none
+            )
+
+        TimePassed sec ->
+            ( case model.active of
+                Just LeftSheet ->
+                    model
+
+                Just RightSheet ->
+                    model
+
+                _ ->
+                    { model
+                        | snackbar = model.snackbar |> Snackbar.timePassed sec
+                    }
+            , Cmd.none
+            )
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.batch
+        [ Browser.Events.onResize (\h w -> Resized { height = h, width = w })
+        , Time.every 50 (always (TimePassed 50))
+        ]
+
+
+{-| You can remove the msgMapper. But by doing so, make sure to also change `msg` to `Msg` in the line below.
+-}
+view : Model -> Element Msg
+view { snackbar, searchText, selected, showDialog, active } =
+    let
+        deviceClass : DeviceClass
+        deviceClass =
+            Phone
+
+        --Replace this line to make the layout responsive
+        --Layout.getDeviceClass window
+        dialog : Maybe (Modal Msg)
+        dialog =
+            if showDialog then
+                { text = "This is a dialog window"
+                , title = Just "Dialog"
+                , accept = Nothing
+                , dismiss =
+                    Just
+                        { text = "Accept"
+                        , onPress =
+                            Just <|
+                                ShowDialog False
+                        }
+                }
+                    |> Widget.dialog (Material.alertDialog palette)
+                    |> Just
+
+            else
+                Nothing
+
+        menu =
+            { selected = Just selected
+            , options =
+                [ "Home", "About" ]
+                    |> List.map
+                        (\string ->
+                            { text = string
+                            , icon = always Element.none
+                            }
+                        )
+            , onSelect = SetSelected >> Just
+            }
+
+        actions =
+            { icon =
+                MaterialIcons.change_history
+                    |> Icon.elmMaterialIcons Color
+            , text = "Action"
+            , onPress = Nothing
+            }
+                |> List.repeat 5
+
+        { primaryActions, moreActions } =
+            Layout.partitionActions actions
+
+        titleEl =
+            "Title"
+                |> Element.text
+                |> Element.el (Typography.h6 ++ [ Element.paddingXY 8 0 ])
+
+        search : TextInput Msg
+        search =
+            { chips = []
+            , text = searchText
+            , placeholder = Nothing
+            , label = "Search"
+            , onChange = SetSearchText
+            }
+
+        nav : Element Msg
+        nav =
+            if
+                (deviceClass == Phone)
+                    || (deviceClass == Tablet)
+                    || (menu.options |> List.length)
+                    > 5
+            then
+                Widget.menuBar (Material.menuBar palette)
+                    { title = titleEl
+                    , deviceClass = deviceClass
+                    , openLeftSheet = Just <| ChangedSidebar <| Just LeftSheet
+                    , openRightSheet = Just <| ChangedSidebar <| Just RightSheet
+                    , openTopSheet = Just <| ChangedSidebar <| Just Search
+                    , primaryActions = primaryActions
+                    , search = Just search
+                    }
+
+            else
+                Widget.tabBar (Material.tabBar palette)
+                    { title = titleEl
+                    , menu = menu
+                    , deviceClass = deviceClass
+                    , openRightSheet = Just <| ChangedSidebar <| Just RightSheet
+                    , openTopSheet = Nothing
+                    , primaryActions = primaryActions
+                    , search = Just search
+                    }
+
+        snackbarElem : Element Msg
+        snackbarElem =
+            snackbar
+                |> Snackbar.view (Material.snackbar palette)
+                    (\text ->
+                        { text = text
+                        , button = Nothing
+                        }
+                    )
+                |> Maybe.map
+                    (Element.el
+                        [ Element.padding 8
+                        , Element.alignBottom
+                        , Element.alignRight
+                        ]
+                    )
+                |> Maybe.withDefault Element.none
+
+        onDismiss =
+            Nothing
+                |> ChangedSidebar
+
+        modals =
+            Layout.orderModals
+                { dialog = dialog
+                , leftSheet =
+                    if active == Just LeftSheet then
+                        Layout.leftSheet
+                            { button = Material.selectItem palette
+                            , sheet = Material.sideSheet palette
+                            }
+                            { title = titleEl
+                            , menu = menu
+                            , onDismiss = onDismiss
+                            }
+                            |> Just
+
+                    else
+                        Nothing
+                , rightSheet =
+                    if active == Just RightSheet then
+                        Layout.rightSheet
+                            { sheet = Material.sideSheet palette
+                            , insetItem = Material.insetItem palette
+                            }
+                            { onDismiss = onDismiss
+                            , moreActions = moreActions
+                            }
+                            |> Just
+
+                    else
+                        Nothing
+                , topSheet =
+                    if active == Just Search then
+                        Layout.searchSheet (searchFill palette)
+                            { search = search
+                            , onDismiss = onDismiss
+                            }
+                            |> Just
+
+                    else
+                        Nothing
+                , bottomSheet = Nothing
+                }
+    in
+    [ nav
+    , Widget.button (Material.containedButton palette)
+        { onPress = Just <| AddSnackbar
+        , text = "Add Notification"
+        , icon = always Element.none
+        }
+    ]
+        |> Element.column [ Element.width <| Element.fill, Element.spacing 8 ]
+        |> Element.el
+            (List.concat
+                [ container palette
+                , [ Element.inFront snackbarElem ]
+                , modals
+                    |> Widget.singleModal
+                , [ Element.height <| Element.minimum 200 <| Element.fill
+                  , Element.width <| Element.minimum 400 <| Element.fill
+                  ]
+                ]
+            )
+
+
+
+main : Program () Model Msg
+main =
+    Browser.sandbox
+        { init   = always init
+        , update = update
+        , view   = view
+        }
